@@ -34,6 +34,7 @@ func (rc *RetryConn) Connect() error {
 			return nil
 		}
 	}
+	GetLogger(rc.ctx).Errorf("RetryConn: Connect: max retries reached: %s", err)
 	return err
 }
 
@@ -58,6 +59,7 @@ func (rc *RetryConn) Run() error {
 			// for a restart of Run to occur, the Connection must explicitly
 			// specify proto.ErrRequestRestart. Otherwise, we return the error.
 			if err == proto.ErrRequestRestart {
+				GetLogger(rc.ctx).Infoln("RetryConn: Connection requested restart. Attemping...")
 				rc.ctx.WaitGroup().Add(1)
 				go func() {
 					defer rc.ctx.WaitGroup().Done()
@@ -65,8 +67,10 @@ func (rc *RetryConn) Run() error {
 				}()
 				continue
 			}
+			GetLogger(rc.ctx).Infof("RetryConn: Connection exited with error: %s. Exiting.", err)
 			return err
 		case <-rc.ctx.Done():
+			GetLogger(rc.ctx).Debugln("RetryConn: Run: context is done, exiting.")
 			return nil
 		}
 	}
@@ -76,6 +80,7 @@ func (rc *RetryConn) Run() error {
 // and waits for its goroutines to exit.
 func (rc *RetryConn) Kill() error {
 	if err := rc.conn.Kill(); err != nil {
+		GetLogger(rc.ctx).Errorf("RetryConn: Kill: error killing underlying Connection: %s", err)
 		return err
 	}
 	rc.ctx.Cancel()
